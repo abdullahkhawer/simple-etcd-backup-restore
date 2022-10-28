@@ -6,29 +6,30 @@ TIMESTAMP=`date +%F-%H-%M`
 ETCD_HOST="0.0.0.0:2379"
 ETCD_USER=""
 ETCD_PASSWORD=""
-ENABLE_COMPRESSION=false
-BACKUP_S3_BUCKET=""
+ENABLE_COMPRESSION=""
+BACKUP_S3_BUCKET_PATH=""
 
 # handle input
 while test $# -gt 0; do
   case "$1" in
     -h|--help)
-      echo "etcd-backup.sh - Backup data in etcd in JSON format."
-      echo " "
+      echo "etcd-backup.sh - Backup data from etcd in .json format file. Compress and/or upload it in .tar format to AWS S3 bucket if desired."
+      echo ""
       echo "Usage: etcd-backup.sh [Options]"
-      echo " "
+      echo ""
       echo "Options:"
       echo "-h, --help                           show brief help"
       echo "--host=ETCD_HOST                     specify etcd host (e.g., 172.168.0.4:2379)"
       echo "--user=ETCD_USER                     specify etcd username (e.g., root)"
       echo "--password=ETCD_PASSWORD             specify etcd password (e.g., password)"
       echo "--compress=ENABLE_COMPRESSION        specify whether to compress data or not (e.g., true)"
-      echo "--s3-bucket=BACKUP_S3_BUCKET         specify AWS S3 bucket name with path (e.g., my-s3-bucket/backups)"
-      echo " "
+      echo "--s3-bucket=BACKUP_S3_BUCKET_PATH    specify AWS S3 bucket name with path if any (e.g., my-s3-bucket/backups)"
+      echo ""
       echo "Examples:"
-      echo "etcd-backup.sh"
-      echo "etcd-backup.sh --host=172.168.0.4:2379"
-      echo "etcd-backup.sh --host=172.168.0.4:2379 --compress=true"
+      echo "bash etcd-backup.sh"
+      echo "bash etcd-backup.sh --host=172.168.0.5:2379"
+      echo "bash etcd-backup.sh --host=172.125.0.5:2379 --compress=true"
+      echo "bash etcd-backup.sh --host=172.168.0.5:2379 --compress=true --s3-bucket=my-s3-bucket/backups"
       exit 0
       ;;
     --host*)
@@ -48,7 +49,7 @@ while test $# -gt 0; do
       shift
       ;;
     --s3-bucket*)
-      export BACKUP_S3_BUCKET=`echo $1 | sed -e 's/^[^=]*=//g'`
+      export BACKUP_S3_BUCKET_PATH=`echo $1 | sed -e 's/^[^=]*=//g'`
       shift
       ;;
     *)
@@ -61,29 +62,30 @@ done
 ETCDCTL_BASE_COMMAND="etcdctl --endpoints=$ETCD_HOST"
 if [ "$ETCD_USER" ] && [ "$ETCD_PASSWORD" ]
 then
-    ETCDCTL_BASE_COMMAND="etcdctl --user=$ETCD_USER --password=$ETCD_PASSWORD --endpoints=$ETCD_HOST"
+  ETCDCTL_BASE_COMMAND="etcdctl --user=$ETCD_USER --password=$ETCD_PASSWORD --endpoints=$ETCD_HOST"
 fi
 
 # take etcd backup in .json file
 index=1
-echo "{" > etcd-backup-unformatted.json
-eval "$ETCDCTL_BASE_COMMAND" get "" --prefix=true \
-    | while read LINE; do index=$((index+1)) && if [ $((index%2)) -eq 0 ]; then printf "\"${LINE}\":"; else echo "\"${LINE}\""; fi; done \
-    | sed '$!s/$/,/' >> etcd-backup-unformatted.json
-echo "}" >> etcd-backup-unformatted.json
-cat etcd-backup-unformatted.json | jq '.' > etcd-backup.json
-echo "etcd backup in JSON format saved in etcd-backup.json file."
+echo "{" > etcd-backup.json
+eval "$ETCDCTL_BASE_COMMAND get '' --prefix=true" \
+  | while read LINE; do index=$((index+1)) && if [ $((index%2)) -eq 0 ]; then printf "\"${LINE}\":"; else echo "\"${LINE}\""; fi; done \
+  | sed '$!s/$/,/' >> etcd-backup.json
+echo "}" >> etcd-backup.json
+JSON_DATA=$(cat etcd-backup.json)
+echo "$JSON_DATA" | jq '.' > etcd-backup.json
+echo "etcd backup in .json format saved in etcd-backup.json file."
 
-# compress backup file into .tar adding timestamp in name
-if [ "$ENABLE_COMPRESSION" ]
+# compress backup .json file into .tar file with timestamp in name
+if [ "$ENABLE_COMPRESSION" = "true" ]
 then
-    tar -cf etcd-backup-json-$TIMESTAMP.tar etcd-backup.json
-    echo "etcd backup file compressed in etcd-backup-json-$TIMESTAMP.tar file."
+  tar -cf etcd-backup-json-$TIMESTAMP.tar etcd-backup.json
+  echo "etcd backup .json file compressed in etcd-backup-json-$TIMESTAMP.tar file."
 fi
 
-# upload compressed files to S3
-if [ "$BACKUP_S3_BUCKET" ]
+# upload compressed backup .tar file on AWS S3 bucket
+if [ "$BACKUP_S3_BUCKET_PATH" ]
 then
-    /usr/local/bin/aws s3 cp etcd-backup-json-$TIMESTAMP.tar s3://$BACKUP_S3_BUCKET/etcd-backup-json-$TIMESTAMP.tar
-    echo "etcd backup uploaded on AWS S3 bucket."
+  aws s3 cp etcd-backup-json-$TIMESTAMP.tar s3://$BACKUP_S3_BUCKET_PATH/etcd-backup-json-$TIMESTAMP.tar
+  echo "etcd compressed backup .tar file uploaded on AWS S3 bucket."
 fi
