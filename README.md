@@ -24,13 +24,14 @@ Basically, the backup script actually fetches all the keys along with their valu
 ## Components Used
 
 Following are the components used in this framework:
+-   etcd key-value store/database.
 -   Bash/Shell scripts having the main logic for backup and restore data in etcd.
 -   etcdctl to communicate with etcd.
 -   sed for data formatting.
 -   jq to convert data into JSON.
 -   tar to compress data.
 -   AWS S3 Bucket to store backup files.
--   AWS CLI to access AWS S3 commands.
+-   AWS CLI to access AWS S3 bucket.
 
 ## Usage Notes
 
