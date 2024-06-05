@@ -5,9 +5,9 @@
 
 ## Introduction
 
-Simple etcd Backup Restore is a repository having simple bash/shell scripts to backup/restore data from/to etcd using JSON format.
+A simple etcd backup and restore solution based on bash/shell scripts to backup/restore data from/to etcd in JSON format with the ability to compress/decompress the backup file and upload/download it on/from AWS S3.
 
-Basically, the backup script actually fetches all the keys along with their values from the latest revision and store them in a file in a JSON format while the restore script actually puts all the keys along with their values using the JSON format file that we just prepared. You can compress the backup .json file and decompress it if compressed. You can even upload the compressed backup .json file to an AWS S3 bucket and download it if uploaded.
+Basically, the backup script actually fetches all the keys along with their values from the latest revision and store them in a file in a JSON format while the restore script actually puts all the keys along with their values using the JSON format file that we just prepared.
 
 ## Features
 
